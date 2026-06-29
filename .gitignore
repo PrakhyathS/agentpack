@@ -10,3 +10,7 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# personal / private docs — never push
+docs/private/
+docs/pitch.md
