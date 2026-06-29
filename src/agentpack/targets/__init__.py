@@ -1,6 +1,9 @@
+from .aider import AiderTarget
 from .base import BaseTarget, Issue, ValidationResult
 from .chatgpt import ChatGPTTarget
 from .claude import ClaudeTarget
+from .codex import CodexTarget
+from .copilot import CopilotTarget
 from .cursor import CursorTarget
 from .gemini import GeminiTarget
 
@@ -9,6 +12,9 @@ TARGETS: dict[str, type[BaseTarget]] = {
     "cursor": CursorTarget,
     "chatgpt": ChatGPTTarget,
     "gemini": GeminiTarget,
+    "copilot": CopilotTarget,
+    "codex": CodexTarget,
+    "aider": AiderTarget,
 }
 
 

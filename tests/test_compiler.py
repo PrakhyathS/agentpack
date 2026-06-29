@@ -1,7 +1,10 @@
 import pytest
 
+from agentpack.targets.aider import AiderTarget
 from agentpack.targets.chatgpt import ChatGPTTarget
 from agentpack.targets.claude import ClaudeTarget
+from agentpack.targets.codex import CodexTarget
+from agentpack.targets.copilot import CopilotTarget
 from agentpack.targets.cursor import CursorTarget
 from agentpack.targets.gemini import GeminiTarget
 from agentpack.targets import get_target, TARGETS
@@ -93,8 +96,68 @@ def test_gemini_warns_over_limit():
 
 # ── Registry ──────────────────────────────────────────────────────────────────
 
+# ── AiderTarget ───────────────────────────────────────────────────────────────
+
+def test_aider_passes_clean_content():
+    t = AiderTarget()
+    result = t.validate("- Use 4-space indentation.\n- Write tests for all new code.\n")
+    assert result.passed
+
+
+def test_aider_warns_over_limit():
+    t = AiderTarget()
+    content = "rule " * 800
+    result = t.validate(content)
+    assert any(i.code == "AIDER_001" for i in result.warnings)
+
+
+def test_aider_fix_trims():
+    t = AiderTarget()
+    content = "rule " * 800
+    result = t.validate(content)
+    fixed, fixes = t.fix(content, result)
+    assert len(fixed) <= AiderTarget.recommended_max_chars
+    assert fixes
+
+
+# ── CodexTarget ───────────────────────────────────────────────────────────────
+
+def test_codex_compile_adds_header():
+    t = CodexTarget()
+    sources = {"README.md": "# Project\n\nDo something."}
+    out = t.compile(sources)
+    assert "Agents" in out
+
+
+# ── CopilotTarget ─────────────────────────────────────────────────────────────
+
+def test_copilot_passes_within_limit():
+    t = CopilotTarget()
+    result = t.validate("Always write unit tests.\nUse TypeScript.\n")
+    assert result.passed
+
+
+def test_copilot_errors_over_hard_limit():
+    t = CopilotTarget()
+    content = "instruction " * 1000  # well over 8000 chars
+    result = t.validate(content)
+    assert not result.passed
+    assert any(i.code == "COPILOT_001" for i in result.errors)
+
+
+def test_copilot_fix_trims_to_limit():
+    t = CopilotTarget()
+    content = "instruction " * 1000
+    result = t.validate(content)
+    fixed, fixes = t.fix(content, result)
+    assert len(fixed) <= CopilotTarget.hard_max_chars
+    assert fixes
+
+
+# ── Registry ──────────────────────────────────────────────────────────────────
+
 def test_all_targets_registered():
-    assert set(TARGETS.keys()) == {"claude", "cursor", "chatgpt", "gemini"}
+    assert set(TARGETS.keys()) == {"claude", "cursor", "chatgpt", "gemini", "copilot", "codex", "aider"}
 
 
 def test_get_target_returns_instance():
