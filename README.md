@@ -1,7 +1,7 @@
 # agentpack
 
 [![CI](https://github.com/PrakhyathS/agentpack/actions/workflows/ci.yml/badge.svg)](https://github.com/PrakhyathS/agentpack/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/agentpack)](https://pypi.org/project/agentpack/)
+[![PyPI](https://img.shields.io/pypi/v/agentpack-cli)](https://pypi.org/project/agentpack-cli/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 
