@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .cid_recovery import recover_cid_symbols
 from .quality import build_warning, detect_math_degradation
 from .tables import flatten_spurious_tables
 
@@ -33,10 +34,13 @@ def convert(path: Path) -> tuple[str | None, str | None]:
     except Exception:
         return None, None
 
-    if path.suffix.lower() == ".pdf" and len(text.strip()) < _SCANNED_TEXT_THRESHOLD:
-        ocr_text = _try_ocr_fallback(path)
-        if ocr_text:
-            text = ocr_text
+    if path.suffix.lower() == ".pdf":
+        if len(text.strip()) < _SCANNED_TEXT_THRESHOLD:
+            ocr_text = _try_ocr_fallback(path)
+            if ocr_text:
+                text = ocr_text
+        else:
+            text = recover_cid_symbols(path, text)
 
     text = flatten_spurious_tables(text)
     warning = build_warning(path) if detect_math_degradation(text) else None
