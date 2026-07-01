@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
 from . import __version__
 from .compiler import Compiler
+from .discovery import sync_claude_md
 from .targets import TARGETS, get_target
 from .targets.base import ValidationResult
 
@@ -24,17 +28,60 @@ _TARGET_HELP = f"Target agent. One of: {', '.join(TARGETS)}"
 def compile(
     source: Path = typer.Argument(Path("."), help="Source directory to compile."),
     target: str = typer.Option(..., "--target", "-t", help=_TARGET_HELP),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Output file path."),
+    output: Path | None = typer.Option(
+        None, "--output", "-o",
+        help="Output path — a file for single-file targets, a directory for package targets.",
+    ),
 ) -> None:
     """Compile a repository into an agent-specific knowledge package."""
+    _run_compile(source, target, output)
+
+
+@app.command()
+def watch(
+    source: Path = typer.Argument(Path("."), help="Source directory to watch."),
+    target: str = typer.Option(..., "--target", "-t", help=_TARGET_HELP),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output path."),
+) -> None:
+    """Watch a directory and auto-recompile whenever files are added, changed, or removed."""
+    from .watch import watch as _watch
+
+    _watch(source, target, output, run_compile=_run_compile, console=console)
+
+
+# ── shared compile logic (used by both `compile` and `watch`) ────────────────
+
+def _run_compile(source: Path, target: str, output: Path | None) -> None:
     ag_target = get_target(target)
     compiler = Compiler(ag_target)
 
     with console.status(f"[bold]Scanning {source}…[/bold]"):
-        content = compiler.compile(source)
+        if ag_target.is_package:
+            package = compiler.compile_package(source)
+        else:
+            content = compiler.compile(source)
+
+    for warning in compiler.last_warnings:
+        console.print(f"[yellow]⚠[/yellow] {escape(warning)}")
+
+    if ag_target.is_package:
+        out_dir = output or (source / "dist" / target)
+        for rel_path, file_content in package.items():
+            file_path = out_dir / rel_path
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text(file_content, encoding="utf-8")
+
+        sync_claude_md(source, out_dir)
+
+        result = ag_target.validate(package["SKILL.md"])
+        console.print()
+        _render_result(result)
+        console.print(
+            f"\n[green]✓[/green] Output: [bold]{out_dir}[/bold]  ({len(package)} file(s))"
+        )
+        return
 
     result = ag_target.validate(content)
-
     out_path = output or (source / "dist" / target / ag_target.output_filename)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(content)
@@ -162,10 +209,10 @@ def _render_result(result: ValidationResult) -> None:
         console.print("\n[red]Errors:[/red]")
         for issue in result.errors:
             tag = "  [dim](fixable — run `agentpack fix`)[/dim]" if issue.fixable else ""
-            console.print(f"  [red]✗[/red] [{issue.code}] {issue.message}{tag}")
+            console.print(f"  [red]✗[/red] [{issue.code}] {escape(issue.message)}{tag}")
 
     if result.warnings:
         console.print("\n[yellow]Warnings:[/yellow]")
         for issue in result.warnings:
             tag = "  [dim](fixable)[/dim]" if issue.fixable else ""
-            console.print(f"  [yellow]⚠[/yellow] [{issue.code}] {issue.message}{tag}")
+            console.print(f"  [yellow]⚠[/yellow] [{issue.code}] {escape(issue.message)}{tag}")

@@ -157,7 +157,9 @@ def test_copilot_fix_trims_to_limit():
 # ── Registry ──────────────────────────────────────────────────────────────────
 
 def test_all_targets_registered():
-    assert set(TARGETS.keys()) == {"claude", "cursor", "chatgpt", "gemini", "copilot", "codex", "aider"}
+    assert set(TARGETS.keys()) == {
+        "claude", "claude-skill", "cursor", "chatgpt", "gemini", "copilot", "codex", "aider",
+    }
 
 
 def test_get_target_returns_instance():

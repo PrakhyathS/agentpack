@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from ..config import SkillConfig
 
 
 @dataclass
@@ -31,6 +35,7 @@ class ValidationResult:
 class BaseTarget(ABC):
     name: str
     output_filename: str
+    is_package: bool = False
 
     @abstractmethod
     def validate(self, content: str) -> ValidationResult:
@@ -40,6 +45,13 @@ class BaseTarget(ABC):
     def compile(self, sources: dict[str, str]) -> str:
         """sources: {relative_path: file_content}"""
         pass
+
+    def compile_package(
+        self, sources: dict[str, str], config: SkillConfig | None = None
+    ) -> dict[str, str]:
+        """Override for multi-file outputs (set is_package = True).
+        Default wraps compile() so single-file targets need no changes."""
+        return {self.output_filename: self.compile(sources)}
 
     def fix(self, content: str, result: ValidationResult) -> tuple[str, list[str]]:
         """Return (fixed_content, list_of_applied_fix_descriptions)."""

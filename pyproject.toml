@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentpack-skills"
-version = "0.1.0"
+version = "0.2.0"
 description = "Agent Knowledge Compiler — one source, many AI targets"
 readme = "README.md"
 license = "MIT"
@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "typer>=0.12",
     "rich>=13",
+    "tomli>=2; python_version < \"3.11\"",
 ]
 
 [project.scripts]
@@ -29,6 +30,20 @@ agentpack = "agentpack.cli:app"
 dev = [
     "pytest>=8",
     "pytest-cov",
+]
+office = [
+    "markitdown[pdf,docx,pptx,xlsx]>=0.1",
+]
+ocr = [
+    "ocrmypdf>=16",
+]
+watch = [
+    "watchdog>=4",
+]
+all = [
+    "markitdown[pdf,docx,pptx,xlsx]>=0.1",
+    "ocrmypdf>=16",
+    "watchdog>=4",
 ]
 
 [tool.pytest.ini_options]

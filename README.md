@@ -28,7 +28,13 @@ CLAUDE.md  .cursorrules  AGENTS.md  custom_instructions.md
 ## Install
 
 ```bash
-pip install agentpack
+pip install agentpack-skills
+
+# Optional extras
+pip install "agentpack-skills[office]"  # PDF/DOCX/PPTX/XLSX ingestion
+pip install "agentpack-skills[ocr]"     # OCR fallback for scanned PDFs (needs `tesseract-ocr` on PATH)
+pip install "agentpack-skills[watch]"   # `agentpack watch` auto-recompile
+pip install "agentpack-skills[all]"     # everything
 ```
 
 ---
@@ -37,13 +43,17 @@ pip install agentpack
 
 ```bash
 # Compile your repo for a specific agent
-agentpack compile . --target claude     # → dist/claude/CLAUDE.md
-agentpack compile . --target cursor     # → dist/cursor/.cursorrules
-agentpack compile . --target chatgpt    # → dist/chatgpt/custom_instructions.md
-agentpack compile . --target gemini     # → dist/gemini/GEMINI.md
-agentpack compile . --target copilot    # → dist/copilot/.github/copilot-instructions.md
-agentpack compile . --target codex      # → dist/codex/AGENTS.md
-agentpack compile . --target aider      # → dist/aider/.aider.md
+agentpack compile . --target claude        # → dist/claude/CLAUDE.md
+agentpack compile . --target claude-skill  # → dist/claude-skill/SKILL.md + references/
+agentpack compile . --target cursor        # → dist/cursor/.cursorrules
+agentpack compile . --target chatgpt       # → dist/chatgpt/custom_instructions.md
+agentpack compile . --target gemini        # → dist/gemini/GEMINI.md
+agentpack compile . --target copilot       # → dist/copilot/.github/copilot-instructions.md
+agentpack compile . --target codex         # → dist/codex/AGENTS.md
+agentpack compile . --target aider         # → dist/aider/.aider.md
+
+# Watch a directory and auto-recompile on every file drop/edit
+agentpack watch . --target claude-skill
 
 # Validate an existing file before loading it into an agent
 agentpack validate CLAUDE.md --target claude
@@ -95,9 +105,10 @@ agentpack score .
 
 ## Supported targets
 
-| Target | Output file | Key constraint | Notes |
+| Target | Output | Key constraint | Notes |
 |--------|-------------|----------------|-------|
-| `claude` | `CLAUDE.md` | 8 000 chars recommended | Anthropic Claude Code |
+| `claude` | `CLAUDE.md` (single file) | 8 000 chars recommended | Anthropic Claude Code project memory |
+| `claude-skill` | `SKILL.md` + `references/` (package) | frontmatter required, body <500 lines | An actual Claude **Skill** — see below |
 | `cursor` | `.cursorrules` | 10 000 chars recommended | Cursor IDE |
 | `chatgpt` | `custom_instructions.md` | **1 500 chars hard limit** | OpenAI ChatGPT |
 | `gemini` | `GEMINI.md` | 5 000 chars recommended | Google Gemini |
@@ -107,6 +118,106 @@ agentpack score .
 
 Version pinning syntax is supported and reserved for future per-version adapters:
 `--target claude@5`
+
+---
+
+## `claude-skill` — a real Claude Skill, not just a context file
+
+`CLAUDE.md` (the `claude` target) and a Claude **Skill** are different artifacts.
+A Skill is a `SKILL.md` + `references/`/`scripts/`/`assets/` package with required
+`name`/`description` frontmatter that Claude auto-triggers on. `--target claude-skill`
+produces the real thing:
+
+```bash
+agentpack compile . --target claude-skill
+```
+
+```
+dist/claude-skill/
+├── SKILL.md              # frontmatter + short body linking to references/
+└── references/
+    ├── README.md          # full, untruncated original content
+    └── docs/rules.md      # full, untruncated original content
+```
+
+Overflow never gets truncated — instead of cutting content to fit a size limit
+(what the `claude` target does), detail moves into `references/`, which has no
+size limit. This is Claude's own progressive-disclosure pattern: frontmatter is
+always loaded, `SKILL.md`'s body loads when the skill triggers, and
+`references/` loads on demand.
+
+**Name and description** are auto-derived from your `README.md`'s title and
+first paragraph. To hand-tune them, add an `agentpack.toml` in your project root:
+
+```toml
+[skill]
+name = "my-project"
+description = "Use when the user asks about X, Y, or Z in this repo."
+license = "MIT"
+```
+
+### The discovery contract — this is what actually saves tokens
+
+Building `SKILL.md` only helps if a *future* session finds it before burning
+tokens re-scanning raw source files. Every `claude-skill` compile automatically
+inserts a short block into your project's own `CLAUDE.md` (idempotent — safe to
+re-run):
+
+```markdown
+<!-- agentpack:discovery-contract -->
+## Compiled knowledge (agentpack)
+- Compiled skill lives in `dist/claude-skill/` (SKILL.md + references/).
+- When answering questions about this project's docs, notes, PDFs, or
+  slides, check `dist/claude-skill/SKILL.md` FIRST — only fall back to
+  scanning raw source files if the compiled skill doesn't cover it.
+<!-- /agentpack:discovery-contract -->
+```
+
+Since `CLAUDE.md` is loaded unconditionally at session start, this guarantees
+Claude checks the compiled skill before ever reading raw source files —
+whether or not the skill's own description happens to trigger first.
+
+---
+
+## Ingesting more than markdown
+
+PDFs, Word docs, PowerPoint decks, and spreadsheets are converted to markdown
+automatically (via [markitdown](https://github.com/microsoft/markitdown)) when
+you install the `office` extra:
+
+```bash
+pip install "agentpack-skills[office]"
+agentpack compile . --target claude-skill   # PDFs/DOCX/PPTX/XLSX now included
+```
+
+Without the extra installed, unconvertible files are skipped with a clear
+warning — never silently dropped:
+
+```
+⚠ skipped slides.pdf — install agentpack-skills[office] for PDF/Office support
+```
+
+Scanned (image-only) PDFs fall back to OCR via
+[ocrmypdf](https://github.com/ocrmypdf/OCRmyPDF)'s Tesseract backend, if the
+`ocr` extra and a system `tesseract-ocr` binary are both installed
+(`brew install tesseract` / `apt install tesseract-ocr`):
+
+```bash
+pip install "agentpack-skills[ocr]"
+```
+
+---
+
+## Auto-recompile with `agentpack watch`
+
+```bash
+pip install "agentpack-skills[watch]"
+agentpack watch . --target claude-skill
+```
+
+Watches the source directory and recompiles automatically whenever a file is
+added, edited, or removed — debounced so rapid saves collapse into a single
+recompile. Foreground command, `Ctrl+C` to stop.
 
 ---
 
@@ -139,6 +250,12 @@ Then register it in [`src/agentpack/targets/__init__.py`](src/agentpack/targets/
 from .myagent import MyAgentTarget
 TARGETS["myagent"] = MyAgentTarget
 ```
+
+For multi-file/package outputs (like `claude-skill`), set `is_package = True`
+and override `compile_package(sources, config) -> dict[str, str]` instead —
+see [`src/agentpack/targets/claude_skill.py`](src/agentpack/targets/claude_skill.py)
+for a complete example. The default `compile_package()` just wraps `compile()`,
+so single-file targets need no changes at all.
 
 No changes needed anywhere else.
 
