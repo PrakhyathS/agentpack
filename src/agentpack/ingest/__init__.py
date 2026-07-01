@@ -10,10 +10,12 @@ CONVERTIBLE_EXTENSIONS = {
 }
 
 
-def convert_file(path: Path) -> str | None:
-    """Dispatch a file to the right ingestor. Returns None if unconvertible
-    or if the required optional dependency isn't installed — callers should
-    treat None as "skip this file", never as an error."""
+def convert_file(path: Path) -> tuple[str | None, str | None]:
+    """Dispatch a file to the right ingestor. Returns (content, quality_warning).
+    content is None if unconvertible or if the required optional dependency
+    isn't installed — callers should treat None as "skip this file", never
+    as an error. quality_warning is set alongside real content when
+    extraction is likely degraded but still usable."""
     if path.suffix.lower() in CONVERTIBLE_EXTENSIONS:
         return office.convert(path)
-    return None
+    return None, None

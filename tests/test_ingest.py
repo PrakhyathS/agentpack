@@ -11,7 +11,7 @@ from agentpack.targets.cursor import CursorTarget
 def test_convert_file_skips_unknown_extension(tmp_path):
     unknown = tmp_path / "file.xyz"
     unknown.write_text("data")
-    assert convert_file(unknown) is None
+    assert convert_file(unknown) == (None, None)
 
 
 def test_convertible_extensions_include_common_office_formats():
@@ -23,8 +23,9 @@ def test_convert_file_returns_none_without_markitdown_installed(tmp_path):
     # not installed, so conversion must degrade gracefully, never raise.
     pdf = tmp_path / "doc.pdf"
     pdf.write_bytes(b"%PDF-1.4 fake content")
-    result = convert_file(pdf)
-    assert result is None or isinstance(result, str)
+    content, warning = convert_file(pdf)
+    assert content is None or isinstance(content, str)
+    assert warning is None or isinstance(warning, str)
 
 
 def test_scan_still_reads_markdown_and_text(tmp_path):
@@ -70,7 +71,7 @@ def test_scan_tags_converted_content_with_md_suffix(tmp_path, monkeypatch):
     pptx = tmp_path / "slides.pptx"
     pptx.write_bytes(b"fake pptx bytes")
     monkeypatch.setattr(
-        sources_module, "convert_file", lambda path: "# Slide 1\n\nHello from slides."
+        sources_module, "convert_file", lambda path: ("# Slide 1\n\nHello from slides.", None)
     )
 
     sources, warnings = scan(tmp_path)
@@ -84,7 +85,7 @@ def test_converted_pptx_content_reaches_claude_skill_output(tmp_path, monkeypatc
     pptx = tmp_path / "slides.pptx"
     pptx.write_bytes(b"fake pptx bytes")
     monkeypatch.setattr(
-        sources_module, "convert_file", lambda path: "# Slide 1\n\nImportant deck content."
+        sources_module, "convert_file", lambda path: ("# Slide 1\n\nImportant deck content.", None)
     )
 
     sources, _ = scan(tmp_path)
@@ -99,7 +100,7 @@ def test_converted_pdf_content_reaches_claude_md_output(tmp_path, monkeypatch):
     pdf = tmp_path / "handbook.pdf"
     pdf.write_bytes(b"fake pdf bytes")
     monkeypatch.setattr(
-        sources_module, "convert_file", lambda path: "# Handbook\n\nOnboarding steps here."
+        sources_module, "convert_file", lambda path: ("# Handbook\n\nOnboarding steps here.", None)
     )
 
     sources, _ = scan(tmp_path)
@@ -112,7 +113,7 @@ def test_converted_docx_content_reaches_cursor_output(tmp_path, monkeypatch):
     docx = tmp_path / "notes.docx"
     docx.write_bytes(b"fake docx bytes")
     monkeypatch.setattr(
-        sources_module, "convert_file", lambda path: "# Notes\n\nMeeting takeaways here."
+        sources_module, "convert_file", lambda path: ("# Notes\n\nMeeting takeaways here.", None)
     )
 
     sources, _ = scan(tmp_path)
