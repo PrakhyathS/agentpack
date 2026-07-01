@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .tables import flatten_spurious_tables
+
 # Below this many non-whitespace characters, a "converted" PDF is treated as
 # scanned/image-only rather than genuinely short — triggers the OCR fallback.
 _SCANNED_TEXT_THRESHOLD = 50
@@ -30,9 +32,9 @@ def convert(path: Path) -> str | None:
     if path.suffix.lower() == ".pdf" and len(text.strip()) < _SCANNED_TEXT_THRESHOLD:
         ocr_text = _try_ocr_fallback(path)
         if ocr_text:
-            return ocr_text
+            return flatten_spurious_tables(ocr_text)
 
-    return text
+    return flatten_spurious_tables(text)
 
 
 def _try_ocr_fallback(path: Path) -> str | None:
