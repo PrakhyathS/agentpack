@@ -45,7 +45,10 @@ def scan(
 
         content = convert_file(path)
         if content is not None:
-            sources[rel] = content
+            # Every target filters sources by a ".md"/".txt" extension —
+            # tag converted content as markdown so it's actually included,
+            # not silently dropped by every target's own filter.
+            sources[f"{rel}.md"] = content
         else:
             warnings.append(
                 f"skipped {rel} — install agentpack-skills[office] for PDF/Office support"
